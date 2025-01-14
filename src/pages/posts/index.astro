@@ -14,7 +14,7 @@ const posts = (await getCollection("posts")).sort(
       posts.map((post, idx) => (
         <li style={{ "--stagger": idx }} class="w-full ">
           <a
-            href={`/posts/${post.id}/`}
+            href={`/blog/posts/${post.id}/`}
             class="flex flex-col gap-2 px-2 py-4 hover:scale-[1.005] transition-all no-underline"
           >
             <FormattedDate date={post.data.pubDate} />
