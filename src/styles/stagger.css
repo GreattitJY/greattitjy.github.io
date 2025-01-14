@@ -1,5 +1,5 @@
-.orchestration > li {
-  animation: enter 2.3s ease both;
+.orchestration:first-child {
+  animation: enter 1.2s ease both;
   --delay: 120ms;
   animation-delay: calc(var(--delay) * var(--stagger));
 }
