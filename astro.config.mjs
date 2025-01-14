@@ -10,7 +10,8 @@ import tailwind from "@astrojs/tailwind";
 
 // https://astro.build/config
 export default defineConfig({
-  site: "https://example.com",
+  site: "https://GreattitJY.github.io",
+  base: "/",
   integrations: [
     mdx(),
     sitemap(),
@@ -19,11 +20,4 @@ export default defineConfig({
       applyBaseStyles: false,
     }),
   ],
-  vite: {
-    resolve: {
-      alias: {
-        "@": path.resolve("./src"),
-      },
-    },
-  },
 });
