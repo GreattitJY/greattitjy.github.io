@@ -1,7 +1,7 @@
 ---
 import { SITE_TITLE, SITE_DESCRIPTION } from "../../consts";
 import { getCollection } from "astro:content";
-import FormattedDate from "../../components/FormattedDate.astro";
+import FormattedDate from "../../components/formatted-date.astro";
 import GlobalLayout from "@/layouts/global-layout.astro";
 
 const posts = (await getCollection("blog")).sort(
@@ -10,7 +10,7 @@ const posts = (await getCollection("blog")).sort(
 ---
 
 <GlobalLayout>
-  <ul>
+  <ul class="flex flex-col items-center">
     {
       posts.map((post) => (
         <li>

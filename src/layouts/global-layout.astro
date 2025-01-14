@@ -2,7 +2,7 @@
 import "../styles/globals.css";
 import BaseHead from "@/components/base-head.astro";
 import Footer from "@/components/Footer.astro";
-import Header from "@/components/Header.astro";
+import Header from "@/components/header.astro";
 const { title, description, pubDate } = Astro.props;
 ---
 
@@ -25,13 +25,13 @@ const { title, description, pubDate } = Astro.props;
   }
 </script>
 
-<html lang="ko">
+<html lang="ko-KR">
   <head>
     <BaseHead title={title} description={description} />
   </head>
   <body>
     <Header />
-    <main>
+    <main class="max-w-layout mx-auto min-h-dvh">
       <slot />
     </main>
     <Footer />
