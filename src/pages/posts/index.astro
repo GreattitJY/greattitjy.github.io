@@ -2,7 +2,6 @@
 import { getCollection } from "astro:content";
 import FormattedDate from "../../components/formatted-date.astro";
 import GlobalLayout from "@/layouts/global-layout.astro";
-import "@/styles/stagger.css";
 
 const posts = (await getCollection("posts")).sort(
   (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
