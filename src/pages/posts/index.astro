@@ -1,8 +1,8 @@
 ---
-import { SITE_TITLE, SITE_DESCRIPTION } from "../../consts";
 import { getCollection } from "astro:content";
 import FormattedDate from "../../components/formatted-date.astro";
 import GlobalLayout from "@/layouts/global-layout.astro";
+import "@/styles/stagger.css";
 
 const posts = (await getCollection("posts")).sort(
   (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
@@ -10,11 +10,14 @@ const posts = (await getCollection("posts")).sort(
 ---
 
 <GlobalLayout>
-  <ol class="flex flex-col items-center gap-1.5">
+  <ol class="flex flex-col items-center gap-1.5 orchestration">
     {
-      posts.map((post) => (
-        <li class="w-full hover:scale-[1.005] transition-all rounded-lg duration-200">
-          <a href={`/posts/${post.id}/`} class="flex flex-col gap-2 px-2 py-4">
+      posts.map((post, idx) => (
+        <li style={{ "--stagger": idx }} class="w-full ">
+          <a
+            href={`/posts/${post.id}/`}
+            class="flex flex-col gap-2 px-2 py-4 hover:scale-[1.005] transition-all no-underline"
+          >
             <FormattedDate date={post.data.pubDate} />
             <h2>{post.data.title}</h2>
           </a>

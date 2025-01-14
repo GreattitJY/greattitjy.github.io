@@ -1,0 +1,16 @@
+.orchestration > li {
+  animation: enter 2.3s ease both;
+  --delay: 120ms;
+  animation-delay: calc(var(--delay) * var(--stagger));
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

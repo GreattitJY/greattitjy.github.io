@@ -106,4 +106,8 @@
   hr {
     @apply border-0 border-t border-[rgb(var(--gray-light))];
   }
+
+  a {
+    @apply underline hover:opacity-70 transition-opacity;
+  }
 }
