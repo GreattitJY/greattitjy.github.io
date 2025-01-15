@@ -87,27 +87,106 @@
     @apply font-semibold;
   }
 
-  code {
-    @apply py-0.5 px-1 bg-[rgb(var(--gray-light))] rounded-md font-semibold text-sm;
-  }
-
-  pre {
-    @apply text-sm p-4 rounded-lg;
-  }
-
-  pre > code {
-    @apply bg-transparent p-0 font-normal;
-  }
-
-  blockquote {
-    @apply border-l-4 border-accent pl-5 m-0;
-  }
-
   hr {
     @apply border-0 border-t border-[rgb(var(--gray-light))];
   }
 
   a {
     @apply underline hover:opacity-70 transition-opacity;
+  }
+}
+
+/* ---- code block ---- */
+@layer base {
+  :root {
+    code {
+      @apply py-0.5 px-0.5 bg-[rgb(var(--gray-light))] rounded-md font-semibold text-sm !leading-loose;
+    }
+
+    pre {
+      @apply text-sm p-4 !px-0 rounded-lg;
+    }
+
+    pre > code {
+      @apply bg-transparent p-0 font-normal;
+      counter-reset: line;
+    }
+
+    blockquote {
+      @apply border-l-4 border-accent pl-5 m-0;
+    }
+
+    code[data-line-numbers] {
+      counter-reset: line;
+    }
+
+    code[data-line-numbers] > [data-line]::before {
+      counter-increment: line;
+      content: counter(line);
+      @apply inline-block w-4 mr-4 text-right text-gray-500;
+    }
+
+    .prose {
+      @apply max-w-[55rem] text-sm !leading-7;
+    }
+
+    pre [data-line] {
+      @apply px-4 border-l-2 border-l-transparent;
+    }
+
+    [data-highlighted-line] {
+      background: rgba(200, 200, 255, 0.1);
+      @apply border-l-blue-400;
+    }
+
+    [data-highlighted-chars] {
+      @apply bg-zinc-600/50 rounded;
+      box-shadow: 0 0 0 4px rgb(82 82 91 / 0.5);
+    }
+
+    [data-chars-id] {
+      @apply shadow-none p-1 border-b-2;
+    }
+
+    [data-chars-id] span {
+      @apply !text-inherit;
+    }
+
+    [data-chars-id="v"] {
+      @apply !text-[#d20f39] border-b-[#e64553] font-bold;
+      background: rgba(235, 176, 176, 0.3);
+    }
+
+    [data-chars-id="s"] {
+      @apply !text-[#df8e1d] border-b-[#df8e1d] font-bold;
+      background: rgba(230, 195, 132, 0.3);
+    }
+
+    [data-chars-id="i"] {
+      @apply !text-[#8839ef] border-b-[#8839ef] font-bold;
+      background: rgba(198, 160, 246, 0.3);
+    }
+
+    [data-rehype-pretty-code-title] {
+      @apply bg-zinc-700 text-zinc-200 rounded-t-lg py-2 px-3 font-semibold text-sm;
+    }
+
+    [data-diff="add"] {
+      @apply bg-emerald-900/30 border-l-4 border-l-emerald-700;
+    }
+
+    [data-diff="delete"] {
+      @apply bg-rose-900/30 border-l-4 border-l-rose-700;
+    }
+
+    figcaption + pre {
+      @apply !rounded-t-none;
+    }
+
+    pre,
+    code,
+    figure {
+      @apply overflow-x-auto px-2 py-0;
+    }
   }
 }
