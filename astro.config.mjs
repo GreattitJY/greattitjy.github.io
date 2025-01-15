@@ -4,7 +4,6 @@ import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
 
 import react from "@astrojs/react";
-import path from "path";
 
 import tailwind from "@astrojs/tailwind";
 
