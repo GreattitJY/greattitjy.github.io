@@ -1,0 +1,47 @@
+---
+title: 'Deep Dive: Radix UI의 React Presence 컴포넌트'
+description: 'React 애니메이션의 핵심을 다루는 Radix UI의 Presence 컴포넌트를 파헤쳐보기'
+pubDate: '2025-01-15'
+---
+
+리액트는 컴포넌트 언마운트 시 DOM에서 해당 요소가 바로 삭제되기 때문에 `fade-out`과 같은 애니메이션을 구현하기가 까다롭습니다.
+
+
+물론 motion, gsap 같은 애니메이션 라이브러리로 이 문제를 쉽게 해결할 수 있습니다. 하지만 단순히 기능 하나를 위해 이러한 라이브러리를 사용하면 번들 사이즈가 커진다는 부담이 있습니다.
+
+그래서 오늘은 Radix UI에서 해당 문제를 어떻게 해결했는지 <a href="https://github.com/radix-ui/primitives/tree/main/packages/react/presence/src" target="_black">코드</a>를 분석해보도록 하겠습니다.
+
+
+## Presence Components
+
+우선 `presecne` 컴포넌트부터 알아보겠습니다.
+
+```tsx showLineNumbers title="Presence.tsx"
+import * as React from "react";
+import * as ReactDOM from "react-dom";
+import { useComposedRefs } from "@radix-ui/react-compose-refs";
+import { useLayoutEffect } from "@radix-ui/react-use-layout-effect";
+import { useStateMachine } from "./use-state-machine";
+
+interface PresenceProps {
+  children: React.ReactElement | ((props: { present: boolean }) => React.ReactElement);
+  present: boolean;
+}
+
+const Presence: React.FC<PresenceProps> = (props) => {
+  const { present, children } = props;
+  const presence = usePresence(present);
+
+  const child = (
+    typeof children === "function"
+      ? children({ present: presence.isPresent })
+      : React.Children.only(children)
+  ) as React.ReactElement;
+
+  const ref = useComposedRefs(presence.ref, getElementRef(child));
+  const forceMount = typeof children === "function";
+  return forceMount || presence.isPresent ? React.cloneElement(child, { ref }) : null;
+};
+
+Presence.displayName = "Presence";
+```

@@ -168,7 +168,7 @@
     }
 
     [data-rehype-pretty-code-title] {
-      @apply bg-zinc-700 text-zinc-200 rounded-t-lg py-2 px-3 font-semibold text-sm;
+      @apply bg-gradient-to-r from-[#babbf1] text-accent-foreground/70 rounded-t-lg py-2 px-3 font-semibold text-sm dark:text-accent/70;
     }
 
     [data-diff="add"] {
