@@ -4,25 +4,72 @@ description: 'React 애니메이션의 핵심을 다루는 Radix UI의 Presence 
 pubDate: '2025-01-15'
 ---
 
-리액트는 컴포넌트 언마운트 시 DOM에서 해당 요소가 바로 삭제되기 때문에 `fade-out`과 같은 애니메이션을 구현하기가 까다롭습니다.
+## 들어가며
+
+리액트는 컴포넌트 언마운트 시 DOM에서 해당 요소가 바로 삭제되기 때문에 <strong>fade-out</strong>과 같은 애니메이션을 구현하기가 까다롭습니다.
+
+물론 <strong>motion</strong>이나 <strong>gsap</strong> 같은 애니메이션 라이브러리로 이 문제를 쉽게 해결할 수 있습니다. 하지만 단순한 기능 하나를 위해 이러한 라이브러리를 사용하면 번들 사이즈가 커진다는 부담이 있습니다.
+
+그렇다면 라이브러리를 사용하지 않고 우리가 원하는대로 작동하게 하려면 어떻게 해야할까요? <br/>
+
+## ❎ setTimeout
+
+여기서 쉽게 저지르는 실수 중 하나는 `setTimeout`을 사용하는 건데요.
+
+```tsx title="setTimeout을 활용한 unmount" showLineNumbers /100/$s /150/$s
+function DelayUnmount({unmount, onClose}: {unmount: boolean, onClose: () => void)}) => {
+  
+  useEffect(() => {
+    let id: NodeJS.Timeout;
+
+    if (unmount) {
+      id = setTimeout(() => {
+        onClose()
+      }, 100);
+    }
+
+    return () => clearTimeout(id)
+  }, [unmount])
+  
+  return  <div className="duration-150 fade-out-animation"></div>
+}
+```
+
+위에 보이는 것처럼 언마운트 싱크를 맞추기 위해 `150ms`와 `100ms`를 사용합니다. 
+그러면 모든 게 잘 작동할까요? 아쉽게도 아닙니다.
+
+setTimeout을 사용한 언마운트 처리의 주요 문제점들을 살펴보겠습니다.
 
 
-물론 motion, gsap 같은 애니메이션 라이브러리로 이 문제를 쉽게 해결할 수 있습니다. 하지만 단순히 기능 하나를 위해 이러한 라이브러리를 사용하면 번들 사이즈가 커진다는 부담이 있습니다.
+**1. 타이밍 정확도 문제**
 
-그래서 오늘은 Radix UI에서 해당 문제를 어떻게 해결했는지 <a href="https://github.com/radix-ui/primitives/tree/main/packages/react/presence/src" target="_black">코드</a>를 분석해보도록 하겠습니다.
+타이밍과 관련해서 브라우저를 먼저 살펴보겠습니다. 브라우저는 초당 60프레임을 목표로 동작합니다. 이는 각 프레임당 약 16.67ms(권장 3ms) 안에 렌더링이 완료되어야 사용자에게 끊김 없는 경험을 제공할 수 있습니다.
+
+하지만 브라우저의 이벤트 루프는 `콜 스택 -> 마이크로태스크 큐 -> 매크로태스크 큐` 순으로 작업을 처리합니다. 
+이는 매크로태스크 큐에서 처리되는 setTimeout이 다른 실행 중인 코드나 브라우저의 성능에 따라 지정된 시간에 정확히 실행되지 않을 수 있음을 의미합니다.
+
+**2.코드 유지보수의 어려움**
+
+애니메이션의 시간을 수정할 때마다 setTimeout의 딜레이도 함께 수정해야 하는데 이는 코드 유지보수 시 문제를 야기할 수 있습니다.
+
+우선 다른 개발자가 코드를 검토할 때 이러한 연관성을 놓치기 쉽고 이로 인해 의도하지 않은 동작이 발생할 수 있습니다.
+특히 코드가 복잡해질수록 이러한 시간 의존적인 로직은 유지보수를 더욱 어렵게 만듭니다.
+
+**3. 제어권**
+
+위의 상황들을 해결하기 위해 개발자가 아무리 정교하게 타이밍을 설정하고 유지보수를 잘 하더라도 언마운트에 대한 제어권은 결국 브라우저에게 있습니다.
+
+특히 복잡한 애니메이션이나 상태 전환이 필요한 경우 이러한 제어권 문제로 인해 애니메이션이 부자연스럽게 끊기거나 상태 업데이트가 제대로 반영되지 않는 등 메모리 누수가 발생할 수 있습니다.
+
+따라서 브라우저의 이벤트 루프와 별개로 개발자가 의도한 시점에 컴포넌트의 마운트/언마운트를 제어할 수 있는 방법이 필요합니다. 
+
+이를 위해 Radix UI는 해당 문제를 어떻게 해결했는지 <a href="https://github.com/radix-ui/primitives/tree/main/packages/react/presence/src" target="_black">코드</a>를 분석해보도록 하겠습니다. 
 
 
-## Presence Components
+## ✅ Presence Component
 
-우선 `presecne` 컴포넌트부터 알아보겠습니다.
-
-```tsx showLineNumbers title="Presence.tsx"
-import * as React from "react";
-import * as ReactDOM from "react-dom";
-import { useComposedRefs } from "@radix-ui/react-compose-refs";
-import { useLayoutEffect } from "@radix-ui/react-use-layout-effect";
-import { useStateMachine } from "./use-state-machine";
-
+```tsx showLineNumbers title="Presence.tsx" {19} /usePresence/#s
+/* --- 생략 --- */
 interface PresenceProps {
   children: React.ReactElement | ((props: { present: boolean }) => React.ReactElement);
   present: boolean;
@@ -45,3 +92,127 @@ const Presence: React.FC<PresenceProps> = (props) => {
 
 Presence.displayName = "Presence";
 ```
+
+우선 return문을 보면 forceMount 혹은 presence가 존재하면 자식 컴포넌트를 복사하는 것을 확인할 수 있습니다. 이를 통해서 우리는 `Presence` 컴포넌트가 자식 컴포넌트의 마운트/언마운트를 관리하는 래퍼 함수임을 알 수 있습니다.  
+
+이제 제어권이 브라우저에서 컴포넌트로 넘어왔습니다.
+
+제어권을 넘겨 받았으니 마운트/언마운트에 대한 상태관리가 필요합니다. 어느 시점에 마운트하고 언마운트 할 것인지 `usePresence` 훅을 살펴 보겠습니다.
+
+```ts showLineNumbers title="usePresence.ts" /useStateMachine/#s {24}
+function usePresence(present: boolean) {
+  const [node, setNode] = React.useState<HTMLElement>();
+  const stylesRef = React.useRef<CSSStyleDeclaration>({} as any);
+  const prevPresentRef = React.useRef(present);
+  const prevAnimationNameRef = React.useRef<string>("none");
+  const initialState = present ? "mounted" : "unmounted";
+  const [state, send] = useStateMachine(initialState, {
+    mounted: {
+      UNMOUNT: "unmounted",
+      ANIMATION_OUT: "unmountSuspended",
+    },
+    unmountSuspended: {
+      MOUNT: "mounted",
+      ANIMATION_END: "unmounted",
+    },
+    unmounted: {
+      MOUNT: "mounted",
+    },
+  });
+
+  /* --- 생략  --- */
+
+  return {
+    isPresent: ["mounted", "unmountSuspended"].includes(state),
+    ref: React.useCallback((node: HTMLElement) => {
+      if (node) stylesRef.current = getComputedStyle(node);
+      setNode(node);
+    }, []),
+  };
+}
+```
+24번째 줄을 보면 `useStateMachine`에서 반환한 상태가 mounted나 unmountSuspended 상태인지 확인합니다.
+
+여기서 주목할 점은 unmountSuspended 상태입니다. 
+
+이 상태는 컴포넌트가 제거되어야 하지만, 아직 애니메이션이 완료되지 않아 잠시 언마운트를 미루고 있는 상태를 의미합니다.
+
+그러면 이제 `어느 상황`에서 상태를 지연하거나 언마운트 혹은 마운트할 것이지 `상태 관리`를 하면 됩니다.
+
+우선 어느 상황을 확인하기 전에 상태 관리를 어떻게 `구현`했는지 확인해 보겠습니다.
+
+
+## useStateMachine with Typescript
+
+코드는 간단하지만 타입이 상당히 어렵습니다.
+
+```ts showLineNumbers title="useStateMachine.ts" {3,4,16}
+import * as React from "react";
+
+type Machine<S> = { [k: string]: { [k: string]: S } };
+type MachineState<T> = keyof T;
+type MachineEvent<T> = keyof UnionToIntersection<T[keyof T]>;
+
+// 🤯 https://fettblog.eu/typescript-union-to-intersection/
+type UnionToIntersection<T> = (T extends unknown ? (x: T) => unknown : never) extends (
+  x: infer R
+) => unknown
+  ? R
+  : never;
+
+export function useStateMachine<M>(
+  initialState: MachineState<M>,
+  machine: M & Machine<MachineState<M>>
+) {
+  return React.useReducer((state: MachineState<M>, event: MachineEvent<M>): MachineState<M> => {
+    const nextState = (machine[state] as any)[event];
+    return nextState ?? state;
+  }, initialState);
+}
+
+```
+
+위에서 확인해야 할 부분은 `machin`이 어떤 구조를 가지고 이를 타입으로 어떻게 보장하는가입니다.
+
+우선 `machine: M & Machine<MachineState<M>>`을 파악하겠습니다.
+
+
+`MachineState<M>`은 M 타입 객체의 키를 반환합니다.
+
+따라서 `Machine<MachineState<M>>`는 다음과 같습니다.
+
+```ts 
+type Machine<MachineState<M>> = { [k: string]: { [k: string]:  keyof M } };
+```
+
+이제 `M &`으로 인해 객체의 최상위 키와 최하위 밸류가 서로 같아야 합니다.
+
+```ts showLineNumbers /"mounted"/$s /"unmounted"/$s /"unmountSuspended"/$s /unmounted/#s /unmountSuspended/#s /mounted/#s  title=" M & Machine<MachineState<M>>"
+{
+  mounted: {
+    UNMOUNT: "unmounted",
+    ANIMATION_OUT: "unmountSuspended"
+  }
+  unmountSuspended: {
+    MOUNT: "mounted",
+    ANIMATION_END: "unmounted"
+  }
+  unmounted: {
+    MOUNT : "mounted"
+  }
+}
+```
+
+이제 machin 구조가 보장되었습니다.
+
+`event` 타입을 확인하기 전에 왜 이런 구조를 가졌는지 확인해보겠습니다.
+
+만약 `state`가 <strong>mounted</strong>로 들어올 경우 <strong>UNMOUNT</strong>, <strong>ANIMATION_OUT</strong>를 통해 다음 렌더링에 대한 `상태 관리`가 가능해집니다.
+
+이를 통해서 우리는 `setTimeout`으로 관리하던 불안전한 방식에서 벗어나 다양한 경우에 대해서 대처가 가능해집니다.
+
+그러면 다양한 경우에 해당하는  `event` 타입을 어떻게 보장하는지 확인해보겠습니다.
+
+```ts title="useStateMachine.ts"
+```
+
