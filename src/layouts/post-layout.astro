@@ -9,11 +9,43 @@ const { title, pubDate } = Astro.props;
 ---
 
 <GlobalLayout>
-  <article class="flex flex-col gap-8">
-    <div class="space-y-2">
+  <article class="flex flex-col gap-6 blog-content">
+    <div class="space-y-2 mb-8">
       <FormattedDate date={pubDate} />
       <h1>{title}</h1>
     </div>
     <slot />
   </article>
 </GlobalLayout>
+
+<style>
+  .blog-content :global(ol) {
+    list-style-type: decimal;
+    list-style-position: inside;
+  }
+
+  .blog-content :global(ul) {
+    list-style-type: disc;
+    list-style-position: inside;
+    margin-top: 0px;
+  }
+
+  .blog-content :global(ul li) {
+    margin-left: 18px;
+  }
+
+  .blog-content :global(li + li) {
+    margin-top: 10px;
+  }
+  .blog-content :global(ol ol),
+  .blog-content :global(ul ul),
+  .blog-content :global(ol ul),
+  .blog-content :global(ul ol) {
+    margin-left: 1rem;
+  }
+
+  .blog-content :global(h2) {
+    margin-top: 20px;
+    margin-bottom: 10px;
+  }
+</style>
