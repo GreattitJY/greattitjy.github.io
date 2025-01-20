@@ -1,6 +1,6 @@
 ---
 title: 'Deep Dive: Radix UI의 React Presence 컴포넌트'
-description: 'React 애니메이션의 핵심을 다루는 Radix UI의 Presence 컴포넌트를 파헤쳐보기'
+description: '리액트에서 언마운트 애니메이션을 위한 커스텀 컴포넌트 파헤쳐보기'
 pubDate: '2025-01-15'
 ---
 
@@ -65,8 +65,7 @@ setTimeout을 사용한 언마운트 처리의 주요 문제점들을 살펴보�
 
 이를 위해 Radix UI는 해당 문제를 어떻게 해결했는지 <a href="https://github.com/radix-ui/primitives/tree/main/packages/react/presence/src" target="_black">코드</a>를 분석해보도록 하겠습니다. 
 
-
-## ✅ Presence Component
+## ✅ Presence Component(제어권)
 
 ```tsx showLineNumbers title="Presence.tsx" {19} /usePresence/#s
 /* --- 생략 --- */
@@ -141,7 +140,7 @@ function usePresence(present: boolean) {
 
 우선 상태 관리를 어떻게 구현했는지 확인해 보겠습니다.
 
-## useStateMachine with Typescript
+## ✅ useStateMachine with Typescript(정확도)
 
 코드는 간단하지만 타입이 상당히 어렵습니다.
 
@@ -208,7 +207,7 @@ type Machine<MachineState<M>> = { [k: string]: { [k: string]:  keyof M } };
 
 만약 `state`가 <strong>mounted</strong>로 들어올 경우 <strong>UNMOUNT</strong>, <strong>ANIMATION_OUT</strong>을 통해 다음 렌더링에 대한 `상태 관리`가 가능해집니다.
 
-이를 통해서 우리는 `setTimeout`으로 관리하던 불안정한 방식에서 벗어나  `어느 상황`에 대한 대처가 가능해집니다.
+이를 통해서 우리는 `setTimeout`으로 관리하던 불안정한 방식에서 벗어나 리액트 렌더링 사이클 안에서 `어느 상황`에 대한 대처가 가능해집니다.
 
 이제 `event` 타입을 확인해 보겠습니다.
 
@@ -240,6 +239,8 @@ type T = keyof E // never
 
 위와 같이 유니온 타입은 공통의 키가 없을 경우 `never` 타입을 반환하기 때문에 교차 타입으로 만들어 타입을 보장해줘야 합니다.
 
+<strong>UnionToIntersection</strong>에 대한 상세한 설명은 <a href="https://fettblog.eu/typescript-union-to-intersection/" target="_black">블로그</a>나 <a href="https://github.com/type-challenges/type-challenges/issues/122" target="_blank">type-challenges</a>를 참고해주세요.
+
 ```ts title="UnionToIntersection"
 type I = UnionToIntersection<'foo' | 42 | true> // expected to be 'foo' & 42 & true
 ```
@@ -259,7 +260,167 @@ type event = "UNMOUNT" | "ANIMATION_OUT" | "MOUNT" | "ANIMATION_END"
   }, initialState);
 ```
 
-<strong>UnionToIntersection</strong>에 대한 상세한 설명은 <a href="https://fettblog.eu/typescript-union-to-intersection/" target="_black">블로그</a>나 <a href="https://github.com/type-challenges/type-challenges/issues/122" target="_blank">type-challenges</a>를 참고해주세요.
+## ✅ 상태 업데이트(유지보수)
+
+setTimeout을 활용할 경우 유지보수가 어려운 점을 앞서 확인했습니다. (커플링, 코드 복잡도에 의한 가독성 저하)
+
+하지만 제어권과 정확도를 커스텀 컴포넌트로 분리함으로써 개발자는 필요한 부분만 신경을 쓰면 되기 때문에 유지보수가 더욱 편리해졌습니다.
+
+여기서는 `useEffect`와 `useLayoutEffect`의 의존성 배열을 기준으로 상태 업데이트를 어떻게 하는지 확인해 보겠습니다.
+
+```tsx title="[state]" showLineNumbers
+  const stylesRef = React.useRef<CSSStyleDeclaration>({} as any);
+  const prevAnimationNameRef = React.useRef<string>("none");
+  /* --- 생략 --- */
+  React.useEffect(() => {
+    const currentAnimationName = getAnimationName(stylesRef.current);
+    prevAnimationNameRef.current = state === "mounted" ? currentAnimationName : "none";
+  }, [state]);
+```
+요소가 처음 마운트되거나 다시 마운트될 경우 해당 시점의 애니메이션 이름을 저장하는 걸 확인할 수 있습니다.
+
+이는 언마운트 시 애니메이션 변화를 감지하는 기준으로 사용되기 때문입니다.
+
+```tsx title="[present, send]" showLineNumbers
+useLayoutEffect(() => {
+  /* --- 생략 --- */
+  const prevAnimationName = prevAnimationNameRef.current;
+  const currentAnimationName = getAnimationName(styles);
+  
+  const isAnimating = prevAnimationName !== currentAnimationName;
+  /* --- 생략 --- */
+}, [present, send]);
+```
+
+이후 조건문들을 통해 상황에 맞게 machin event로 렌더링 상태를 업데이트합니다.
+
+```tsx title="[present, send]" showLineNumbers {6, 10, 12, 16, 25, 27}
+useLayoutEffect(() => {
+  const styles = stylesRef.current;
+  const wasPresent = prevPresentRef.current;
+  const hasPresentChanged = wasPresent !== present;
+
+  if (hasPresentChanged) {
+    const prevAnimationName = prevAnimationNameRef.current;
+    const currentAnimationName = getAnimationName(styles);
+
+    if (present) {
+      send("MOUNT");
+    } else if (currentAnimationName === "none" || styles?.display === "none") {
+      // If there is no exit animation or the element is hidden, animations won't run
+      // so we unmount instantly
+      send("UNMOUNT");
+    } else {
+      /**
+       * When `present` changes to `false`, we check changes to animation-name to
+       * determine whether an animation has started. We chose this approach (reading
+       * computed styles) because there is no `animationrun` event and `animationstart`
+       * fires after `animation-delay` has expired which would be too late.
+       */
+      const isAnimating = prevAnimationName !== currentAnimationName;
+
+      if (wasPresent && isAnimating) {
+        send("ANIMATION_OUT");
+      } else {
+        send("UNMOUNT");
+      }
+    }
+
+    prevPresentRef.current = present;
+  }
+}, [present, send]);
+```
+
+DOM 노드에 대한 `useLayoutEffect`는 다음과 같습니다.
+
+```tsx title="[node, send]" showLineNumbers {9-11}
+const [node, setNode] = React.useState<HTMLElement>();
+
+useLayoutEffect(() => {
+  if (node) {
+    const handleAnimationEnd = (event: AnimationEvent) => {
+      const currentAnimationName = getAnimationName(stylesRef.current);
+      const isCurrentAnimation = currentAnimationName.includes(event.animationName);
+    if (event.target === node && isCurrentAnimation) {
+        // With React 18 concurrency this update is applied
+        // a frame after the animation ends, creating a flash of visible content.
+        // By manually flushing we ensure they sync within a frame, removing the flash.
+        ReactDOM.flushSync(() => send("ANIMATION_END"));
+      }
+    };
+    const handleAnimationStart = (event: AnimationEvent) => {
+      if (event.target === node) {
+        prevAnimationNameRef.current = getAnimationName(stylesRef.current);
+      }
+    };
+    // ... 이벤트 리스너 등록 및 제거
+  }
+}, [node, send]);
+```
+
+여기서는 React의 동시성 문제로 인한 상태 업데이트 지연을 방지하기 위해 <a href="https://react.dev/reference/react-dom/flushSync" target="_blank">flushSync</a>를 사용합니다.
+
+이외의 상태 업데이트는 이벤트 리스너에게 위임하여 애니메이션의 시작과 종료를 처리합니다.
+
+각 의존성 배열을 기준으로 종합해보면 다음과 같습니다.
+
+**[state] 의존성**
+
+- 컴포넌트의 마운트 상태가 변경될 때마다 현재 애니메이션 상태를 추적
+- 이전 애니메이션 이름을 저장하여 변화 감지의 기준점 제공
+
+**[present, send] 의존성**
+
+- present prop의 변경을 감지하여 마운트/언마운트 전환을 처리
+- 이전에 저장된 애니메이션 이름과 현재 상태를 비교하여 적절한 상태 전이 결정
+
+**[node, send] 의존성**
+
+- DOM 노드에 대한 실제 애니메이션 이벤트 감지 및 처리
+- 애니메이션 시작/종료 시점에 적절한 상태 업데이트 수행
 
 
-## 상태 업데이트
+## 나가며
+
+리액트의 언마운트 애니메이션을 위해 setTimeout을 사용하면 당장은 간편할 수 있습니다. 
+
+혹은 requestAnimationFrame을 사용하면 되는 거 아니야?라고 생각할 수도 있습니다.
+
+하지만 **제어권**, **정확도**, **유지보수** 측면에서 보면 그렇지 않습니다.
+
+이러한 문제점들을 해결하기 위해 우리는 CSS 애니메이션과 상태 머신을 결합한 접근 방식을 살펴보았습니다.
+
+끝으로 사용 예시를 확인하며 글을 마치겠습니다.
+
+```tsx title="PresenceExample.tsx" showLineNumbers {7, 9}
+export default function PresenceExample() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div>
+      <button onClick={() => setOpen(true)}>open</button>
+      <Presence present={open}>
+        <div
+          data-state={open ? "open" : "closed"}
+          className="overlay"
+          onClick={() => setOpen(false)}
+        />
+      </Presence>
+    </div>
+  );
+}
+
+```
+
+```CSS title="styles.css" showLineNumbers {7}
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: blue;
+  animation: fadeIn 0.5s;
+
+  &[data-state="closed"] {
+    animation: fadeOut 0.5s;
+  }
+}
+```
