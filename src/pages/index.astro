@@ -1,43 +1,38 @@
 ---
+import { getCollection } from "astro:content";
 import GlobalLayout from "@/layouts/global-layout.astro";
+import FormattedDate from "@/components/formatted-date.astro";
+import { ArrowRightIcon } from "lucide-react";
+
+const posts = (await getCollection("posts"))
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
+  .slice(0, 5);
 ---
 
 <GlobalLayout>
-  <section class="flex flex-col orchestration">
-    <div>
-      <h1>🧑‍🚀 Hello, Astronaut!</h1>
-      <p>
-        Welcome to the official <a href="https://astro.build/">Astro</a> blog starter template. This
-        template serves as a lightweight, minimally-styled starting point for anyone looking to build
-        a personal website, blog, or portfolio with Astro.
-      </p>
-      <p>
-        This template comes with a few integrations already configured in your
-        <code>astro.config.mjs</code> file. You can customize your setup with
-        <a href="https://astro.build/integrations">Astro Integrations</a> to add tools like Tailwind,
-        React, or Vue to your project.
-      </p>
-      <p>Here are a few ideas on how to get started with the template:</p>
-      <ul>
-        <li>Edit this page in <code>src/pages/index.astro</code></li>
-        <li>Edit the site header items in <code>src/components/Header.astro</code></li>
-        <li>Add your name to the footer in <code>src/components/Footer.astro</code></li>
-        <li>Check out the included blog posts in <code>src/content/blog/</code></li>
-        <li>Customize the blog post page layout in <code>src/layouts/BlogPost.astro</code></li>
-      </ul>
-      <p>
-        Have fun! If you get stuck, remember to <a href="https://docs.astro.build/"
-          >read the docs
-        </a>
-        or
-        <a href="https://astro.build/chat">join us on Discord</a> to ask questions.
-      </p>
-      <p>
-        Looking for a blog template with a bit more personality? Check out <a
-          href="https://github.com/Charca/astro-blog-template"
-          >astro-blog-template
-        </a> by <a href="https://twitter.com/Charca">Maxi Ferreira</a>.
-      </p>
-    </div>
+  <section class="flex flex-col orchestration h-dvh">
+    <h1 class="mb-10">Latest</h1>
+    <ol>
+      {
+        posts.map((post, idx) => (
+          <li class="w-full py-2.5 border-t">
+            <a
+              href={`/posts/${post.id}/`}
+              class="flex flex-col gap-2 px-2 py-4 hover:scale-[1.005] transition-all no-underline"
+            >
+              <FormattedDate date={post.data.pubDate} />
+              <span class="text-2xl font-bold">{post.data.title}</span>
+              <span class="flex gap-1 items-center mt-2">
+                Read more
+                <ArrowRightIcon className="size-4" />
+              </span>
+            </a>
+          </li>
+        ))
+      }
+    </ol>
+    <a href="/posts" class="no-underline ml-auto mt-auto gap-1 flex items-center"
+      >All Posts <ArrowRightIcon className="size-4" />
+    </a>
   </section>
 </GlobalLayout>
