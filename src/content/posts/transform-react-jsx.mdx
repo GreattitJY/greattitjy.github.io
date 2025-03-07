@@ -30,7 +30,7 @@ pubDate: '2025-03-07'
 
 17부터는 `runtime: "automatic"`을 사용합니다. 이와 관련해서는 추후 다시 살펴보겠습니다.
 
-이제 간단한 React 컴포넌트를 살펴보겠습니다:
+이제 간단한 React 컴포넌트를 살펴보겠습니다.
 
 ```js title="Before"
 export default function App() {
@@ -193,7 +193,7 @@ export function createElement(type, config, children) {
 
 > The transform uses React.createElement which is a dynamic property look up instead of a constant closed over module scope. This minimizes poorly and takes a little cost to run.
 
-### 동적 속성 조회(dynamic property look up):
+### 동적 속성 조회(dynamic property look up)
 
 `React.createElement`와 같이 객체의 속성에 접근하는 방식입니다.
 
@@ -201,7 +201,7 @@ export function createElement(type, config, children) {
 
 이는 자바스크립트 엔진이 매번 이 경로를 따라가서 함수를 찾아야 하므로 약간의 성능 비용이 발생합니다.
 
-### 모듈 스코프에서 클로저된 상수(constant closed over module scope):
+### 모듈 스코프에서 클로저된 상수(constant closed over module scope)
 
 모듈 스코프에서 직접 함수나 값을 가져와 사용하는 방식입니다.
 
